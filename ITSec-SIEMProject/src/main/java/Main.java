@@ -4,16 +4,17 @@ import com.espertech.esper.compiler.client.CompilerArguments;
 import com.espertech.esper.compiler.client.EPCompileException;
 import com.espertech.esper.compiler.client.EPCompiler;
 import com.espertech.esper.compiler.internal.util.EPCompilerImpl;
-import com.espertech.esper.runtime.client.EPRuntime;
-import com.espertech.esper.runtime.client.EPRuntimeProvider;
+import com.espertech.esper.runtime.client.*;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Main {
+    static HashMap<String, Integer> attempts;
+
     public static void main(String[] args) throws IOException, NullPointerException {
         EPCompiler epc = new EPCompilerImpl();
 
@@ -23,8 +24,44 @@ public class Main {
 
         EPRuntime runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
 
+        CompilerArguments arguments = new CompilerArguments(configuration);
+
+        EPCompiled epCompiled;
+        try {
+            epCompiled = epc.compile("@name('my-statement') select SYSLOG_TIMESTAMP, MESSAGE from SSHLogMessage", arguments);
+        }
+        catch (EPCompileException ex) {
+            // handle exception here
+            System.out.println("2");
+            throw new RuntimeException(ex);
+        }
 
 
+
+        EPDeployment deployment;
+        try {
+            deployment = runtime.getDeploymentService().deploy(epCompiled);
+        }
+        catch (EPDeployException ex) {
+            // handle exception here
+            System.out.println("1");
+            throw new RuntimeException(ex);
+        }
+
+        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "my-statement");
+        statement.addListener( (newData, oldData, statement1, runtime1) -> {
+            String SYSLOG_TIMESTAMP = (String) newData[0].get("SYSLOG_TIMESTAMP");
+            String MESSAGE = (String) newData[0].get("MESSAGE");
+//            if (MESSAGE.contains("Failed password")) {
+//                String attemptIP = (String) newData[0].get("fromIP");
+//                if (attempts.containsKey(attemptIP)) {
+//                    attempts.put(attemptIP, attempts.get(attemptIP) + 1);
+//                } else {
+//                    attempts.put(attemptIP, 0);
+//                }
+//            }
+            System.out.println(String.format("SYSLOG_TIMESTAMP: %s, MESSAGE: %s, COUNTER : %d", SYSLOG_TIMESTAMP, MESSAGE, 42));
+        });
 
 
 
@@ -35,7 +72,6 @@ public class Main {
         BufferedReader reader = new BufferedReader(new InputStreamReader(is));
 
         String line = null;
-        ArrayList<SSHLogMessage> messageList = new ArrayList<>();
         while ((line = reader.readLine()) != null) {
 //            System.out.println(line);
             SSHLogMessage mess = new SSHLogMessage(line);

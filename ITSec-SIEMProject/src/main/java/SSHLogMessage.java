@@ -7,6 +7,10 @@ public class SSHLogMessage {
     String SYSLOG_TIMESTAMP;
     String MESSAGE;
 
+    public SSHLogMessage() {
+
+    }
+
     public SSHLogMessage(String json) throws JsonProcessingException, NullPointerException {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNode = objectMapper.readTree(json);
@@ -15,5 +19,13 @@ public class SSHLogMessage {
             this.SYSLOG_TIMESTAMP = jsonNode.get("SYSLOG_TIMESTAMP").asText();
             this.MESSAGE = jsonNode.get("MESSAGE").asText();
         }
+    }
+
+    public String getSYSLOG_TIMESTAMP() {
+        return SYSLOG_TIMESTAMP;
+    }
+
+    public String getMESSAGE() {
+        return MESSAGE;
     }
 }
