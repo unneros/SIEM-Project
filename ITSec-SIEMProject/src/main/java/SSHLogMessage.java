@@ -28,4 +28,5 @@ public class SSHLogMessage {
     public String getMESSAGE() {
         return MESSAGE;
     }
+
 }
