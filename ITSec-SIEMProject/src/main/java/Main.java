@@ -10,30 +10,41 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Scanner;
 
 public class Main {
-    static int counter = 0;
     static HashMap<String, Integer> attempts = new HashMap<>();
 
     public static void main(String[] args) throws IOException, NullPointerException {
         EPRuntime SSHLogMessageRuntime = initSSHLogMessageRuntime();
+        int journalLines = 0;
+        while (true) {
+            ProcessBuilder builder = new ProcessBuilder("bash", "-c", "journalctl -u ssh.service -o json");
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+            InputStream is = process.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+            ArrayList<String> jsonList = jsonList(reader);
+            int newJournalLines = jsonList.size();
 
-        ProcessBuilder builder = new ProcessBuilder("bash", "-c", "journalctl -u ssh.service -o json");
-        builder.redirectErrorStream(true);
-        Process process = builder.start();
-        InputStream is = process.getInputStream();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-
-        String line = null;
-        while ((line = reader.readLine()) != null) {
+            String line = null;
+            for (int i = journalLines; i < newJournalLines; i++) {
+                line = jsonList.get(i);
+                SSHLogMessage mess = new SSHLogMessage(line);
+                SSHLogMessageRuntime.getEventService().sendEventBean(mess, "SSHLogMessage");
+            }
+            journalLines = newJournalLines;
+        }
+//            while ((line = reader.readLine()) != null) {
 //            System.out.println(line);
-            SSHLogMessage mess = new SSHLogMessage(line);
+//                SSHLogMessage mess = new SSHLogMessage(line);
 //            messageList.add(mess);
 //            System.out.println(mess.TRANSPORT + " " + mess.MESSAGE + " " + mess.SYSLOG_TIMESTAMP);
-            SSHLogMessageRuntime.getEventService().sendEventBean(mess, "SSHLogMessage");
+//                SSHLogMessageRuntime.getEventService().sendEventBean(mess, "SSHLogMessage");
 //            System.out.println(mess.MESSAGE + " " + mess.FROMIP);
-        }
+//            }
     }
 
 
@@ -76,8 +87,6 @@ public class Main {
             String MESSAGE = (String) newData[0].get("MESSAGE");
             String SYSLOG_TIMESTAMP = (String) newData[0].get("SYSLOG_TIMESTAMP");
             if (MESSAGE.contains("Failed password") || MESSAGE.contains("Failed authentication")) {
-                counter++;
-                System.out.println(counter);
                 SSHLoginAttemptMessageRuntime.getEventService().sendEventBean(new SSHLoginAttemptMessage(MESSAGE, SYSLOG_TIMESTAMP), "SSHLoginAttemptMessage");
             }
         });
@@ -126,10 +135,18 @@ public class Main {
 
         EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "my-statement2");
         statement.addListener( (newData, oldData, statement2, runtime2) -> {
-            String SYSLOG_TIMESTAMP = (String) newData[0].get("log1.FROMIP");
-            System.out.println(String.format("Detected 3 consecutive failed login attempts from: " + SYSLOG_TIMESTAMP));
+            String FROMIP = (String) newData[0].get("log1.FROMIP");
+            String SYSLOG_TIMESTAMP = (String) newData[0].get("log1.SYSLOG_TIMESTAMP");
+            System.out.println(String.format("Detected 3 consecutive failed login attempts from: " + FROMIP + " at: " + SYSLOG_TIMESTAMP));
 //            String MESSAGE = (String) newData[0].get("MESSAGE");
         });
         return runtime;
+    }
+
+    public static ArrayList<String> jsonList(BufferedReader br) throws IOException {
+        String line = null;
+        ArrayList<String> result = new ArrayList<>();
+        while ((line = br.readLine()) != null) result.add(line);
+        return result;
     }
 }
