@@ -17,7 +17,9 @@ public class Main {
 //    static HashMap<String, Integer> attempts = new HashMap<>();
 
     public static void main(String[] args) throws IOException, NullPointerException {
+        System.out.println("Compiling...");
         EPRuntime SSHLogMessageRuntime = initSSHLogMessageRuntime();
+        System.out.println("Finished compiling");
         int journalLines = 0;
         while (true) {
             ProcessBuilder builder = new ProcessBuilder("bash", "-c", "journalctl -u ssh.service -o json");
@@ -55,7 +57,10 @@ public class Main {
 
         EPCompiled epCompiled;
         try {
-            epCompiled = epc.compile("@name('my-statement') select * from SSHLogMessage",arguments);
+            epCompiled = epc.compile("@name('SSHLogMessage') select * from SSHLogMessage as log " +
+                    "where log.MESSAGE like \'%Failed authentication%\' " +
+                    "or log.MESSAGE like \'%Failed password%\' " +
+                    "or log.MESSAGE like \'Accepted password\'", arguments);
         }
         catch (EPCompileException ex) {
             // handle exception here
@@ -73,13 +78,11 @@ public class Main {
             throw new RuntimeException(ex);
         }
 
-        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "my-statement");
+        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "SSHLogMessage");
         statement.addListener( (newData, oldData, statement1, runtime1) -> {
             String MESSAGE = (String) newData[0].get("MESSAGE");
             String SYSLOG_TIMESTAMP = (String) newData[0].get("SYSLOG_TIMESTAMP");
-            if (MESSAGE.contains("Failed password") || MESSAGE.contains("Failed authentication")) {
-                SSHLoginAttemptMessageRuntime.getEventService().sendEventBean(new SSHLoginAttemptMessage(MESSAGE, SYSLOG_TIMESTAMP), "SSHLoginAttemptMessage");
-            }
+            SSHLoginAttemptMessageRuntime.getEventService().sendEventBean(new SSHLoginAttemptMessage(MESSAGE, SYSLOG_TIMESTAMP), "SSHLoginAttemptMessage");
         });
 
         return runtime;
@@ -100,7 +103,7 @@ public class Main {
 
         EPCompiled epCompiled;
         try {
-            epCompiled = epc.compile("@name('my-statement2') select * from SSHLoginAttemptMessage " +
+            epCompiled = epc.compile("@name('SSHLoginAttemptMessage') select * from SSHLoginAttemptMessage " +
                     " match_recognize (" +
                     "   measures A as log1, B as log2, C as log3" +
                     "   pattern (A B C)" +
@@ -125,13 +128,11 @@ public class Main {
             throw new RuntimeException(ex);
         }
 
-        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "my-statement2");
+        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "SSHLoginAttemptMessage");
         statement.addListener( (newData, oldData, statement2, runtime2) -> {
             String FROMIP = (String) newData[0].get("log1.FROMIP");
             String SYSLOG_TIMESTAMP = (String) newData[0].get("log1.SYSLOG_TIMESTAMP");
-//            System.out.println(String.format("Detected 3 consecutive failed login attempts from: " + FROMIP + " at: " + SYSLOG_TIMESTAMP));
             SSHAlertRuntime.getEventService().sendEventBean(new SSHAlert(SYSLOG_TIMESTAMP, "Three consecutive failed login attempt", FROMIP), "SSHAlert");
-//            String MESSAGE = (String) newData[0].get("MESSAGE");
         });
         return runtime;
     }
@@ -151,7 +152,7 @@ public class Main {
 
         EPCompiled epCompiled;
         try {
-            epCompiled = epc.compile("@name('my-statement3') select * from SSHAlert ", arguments);
+            epCompiled = epc.compile("@name('SSHAlert') select * from SSHAlert ", arguments);
         }
         catch (EPCompileException ex) {
             // handle exception here
@@ -169,12 +170,11 @@ public class Main {
             throw new RuntimeException(ex);
         }
 
-        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "my-statement3");
+        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "SSHAlert");
         statement.addListener( (newData, oldData, statement2, runtime2) -> {
             String FROMIP = (String) newData[0].get("FROMIP");
             String SYSLOG_TIMESTAMP = (String) newData[0].get("SYSLOG_TIMESTAMP");
             System.out.println(String.format("Detected 3 consecutive failed login attempts from: " + FROMIP + " at: " + SYSLOG_TIMESTAMP));
-//            String MESSAGE = (String) newData[0].get("MESSAGE");
         });
         return runtime;
     }
