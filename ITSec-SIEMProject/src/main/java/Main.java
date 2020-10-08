@@ -42,13 +42,14 @@ public class Main {
 
 
     public static EPRuntime initSSHLogMessageRuntime() {
-        EPRuntime SSHLoginAttemptMessageRuntime = initSSHLoginAttemptMessageRuntime();
+//        EPRuntime SSHLoginAttemptMessageRuntime = initSSHLoginAttemptMessageRuntime();
 
         EPCompiler epc = new EPCompilerImpl();
 
         Configuration configuration = new Configuration();
         configuration.getCommon().addEventType(SSHLoginAttemptMessage.class);
         configuration.getCommon().addEventType(SSHLogMessage.class);
+        configuration.getCommon().addEventType(SSHAlert.class);
 
 
         EPRuntime runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
@@ -67,8 +68,6 @@ public class Main {
             throw new RuntimeException(ex);
         }
 
-
-
         EPDeployment deployment;
         try {
             deployment = runtime.getDeploymentService().deploy(epCompiled);
@@ -82,28 +81,14 @@ public class Main {
         statement.addListener( (newData, oldData, statement1, runtime1) -> {
             String MESSAGE = (String) newData[0].get("MESSAGE");
             String SYSLOG_TIMESTAMP = (String) newData[0].get("SYSLOG_TIMESTAMP");
-            SSHLoginAttemptMessageRuntime.getEventService().sendEventBean(new SSHLoginAttemptMessage(MESSAGE, SYSLOG_TIMESTAMP), "SSHLoginAttemptMessage");
+            runtime.getEventService().sendEventBean(new SSHLoginAttemptMessage(MESSAGE, SYSLOG_TIMESTAMP), "SSHLoginAttemptMessage");
         });
 
-        return runtime;
-    }
+        //--------------------------------
 
-    public static EPRuntime initSSHLoginAttemptMessageRuntime() {
-        EPRuntime SSHAlertRuntime = initSSHAlertRuntime();
-        EPCompiler epc = new EPCompilerImpl();
-
-        Configuration configuration = new Configuration();
-        configuration.getCommon().addEventType(SSHLoginAttemptMessage.class);
-        configuration.getCommon().addEventType(SSHLogMessage.class);
-
-
-        EPRuntime runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
-
-        CompilerArguments arguments = new CompilerArguments(configuration);
-
-        EPCompiled epCompiled;
+        EPCompiled epCompiled2;
         try {
-            epCompiled = epc.compile("@name('SSHLoginAttemptMessage') select * from SSHLoginAttemptMessage " +
+            epCompiled2 = epc.compile("@name('SSHLoginAttemptMessage') select * from SSHLoginAttemptMessage " +
                     " match_recognize (" +
                     "   measures A as log1, B as log2, C as log3" +
                     "   pattern (A B C)" +
@@ -117,42 +102,27 @@ public class Main {
             throw new RuntimeException(ex);
         }
 
-
-
-        EPDeployment deployment;
+        EPDeployment deployment2;
         try {
-            deployment = runtime.getDeploymentService().deploy(epCompiled);
+            deployment2 = runtime.getDeploymentService().deploy(epCompiled2);
         }
         catch (EPDeployException ex) {
             // handle exception here
             throw new RuntimeException(ex);
         }
 
-        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "SSHLoginAttemptMessage");
-        statement.addListener( (newData, oldData, statement2, runtime2) -> {
+        EPStatement statement2 = runtime.getDeploymentService().getStatement(deployment2.getDeploymentId(), "SSHLoginAttemptMessage");
+        statement2.addListener( (newData, oldData, statement1, runtime1) -> {
             String FROMIP = (String) newData[0].get("log1.FROMIP");
             String SYSLOG_TIMESTAMP = (String) newData[0].get("log1.SYSLOG_TIMESTAMP");
-            SSHAlertRuntime.getEventService().sendEventBean(new SSHAlert(SYSLOG_TIMESTAMP, "Three consecutive failed login attempt", FROMIP), "SSHAlert");
+            runtime.getEventService().sendEventBean(new SSHAlert(SYSLOG_TIMESTAMP, "Three consecutive failed login attempt", FROMIP), "SSHAlert");
         });
-        return runtime;
-    }
 
-    public static EPRuntime initSSHAlertRuntime() {
-        EPCompiler epc = new EPCompilerImpl();
+        //------------------------
 
-        Configuration configuration = new Configuration();
-        configuration.getCommon().addEventType(SSHLoginAttemptMessage.class);
-        configuration.getCommon().addEventType(SSHLogMessage.class);
-        configuration.getCommon().addEventType(SSHAlert.class);
-
-
-        EPRuntime runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
-
-        CompilerArguments arguments = new CompilerArguments(configuration);
-
-        EPCompiled epCompiled;
+        EPCompiled epCompiled3;
         try {
-            epCompiled = epc.compile("@name('SSHAlert') select * from SSHAlert ", arguments);
+            epCompiled3 = epc.compile("@name('SSHAlert') select * from SSHAlert ", arguments);
         }
         catch (EPCompileException ex) {
             // handle exception here
@@ -161,23 +131,115 @@ public class Main {
 
 
 
-        EPDeployment deployment;
+        EPDeployment deployment3;
         try {
-            deployment = runtime.getDeploymentService().deploy(epCompiled);
+            deployment3 = runtime.getDeploymentService().deploy(epCompiled3);
         }
         catch (EPDeployException ex) {
             // handle exception here
             throw new RuntimeException(ex);
         }
 
-        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "SSHAlert");
-        statement.addListener( (newData, oldData, statement2, runtime2) -> {
+        EPStatement statement3 = runtime.getDeploymentService().getStatement(deployment3.getDeploymentId(), "SSHAlert");
+        statement3.addListener( (newData, oldData, statement1, runtime1) -> {
             String FROMIP = (String) newData[0].get("FROMIP");
             String SYSLOG_TIMESTAMP = (String) newData[0].get("SYSLOG_TIMESTAMP");
             System.out.println(String.format("Detected 3 consecutive failed login attempts from: " + FROMIP + " at: " + SYSLOG_TIMESTAMP));
         });
+
         return runtime;
     }
+
+//    public static EPRuntime initSSHLoginAttemptMessageRuntime() {
+//        EPRuntime SSHAlertRuntime = initSSHAlertRuntime();
+//        EPCompiler epc = new EPCompilerImpl();
+//
+//        Configuration configuration = new Configuration();
+//        configuration.getCommon().addEventType(SSHLoginAttemptMessage.class);
+//        configuration.getCommon().addEventType(SSHLogMessage.class);
+//
+//
+//        EPRuntime runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
+//
+//        CompilerArguments arguments = new CompilerArguments(configuration);
+//
+//        EPCompiled epCompiled;
+//        try {
+//            epCompiled = epc.compile("@name('SSHLoginAttemptMessage') select * from SSHLoginAttemptMessage " +
+//                    " match_recognize (" +
+//                    "   measures A as log1, B as log2, C as log3" +
+//                    "   pattern (A B C)" +
+//                    "   define " +
+//                    "     A as A.MESSAGE like \'Failed attempt\'," +
+//                    "     C as C.MESSAGE like \'Failed attempt\' and C.FROMIP like A.FROMIP," +
+//                    "     B as B.MESSAGE like \'Failed attempt\' and B.FROMIP like A.FROMIP)", arguments);
+//        }
+//        catch (EPCompileException ex) {
+//            // handle exception here
+//            throw new RuntimeException(ex);
+//        }
+//
+//
+//
+//        EPDeployment deployment;
+//        try {
+//            deployment = runtime.getDeploymentService().deploy(epCompiled);
+//        }
+//        catch (EPDeployException ex) {
+//            // handle exception here
+//            throw new RuntimeException(ex);
+//        }
+//
+//        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "SSHLoginAttemptMessage");
+//        statement.addListener( (newData, oldData, statement2, runtime2) -> {
+//            String FROMIP = (String) newData[0].get("log1.FROMIP");
+//            String SYSLOG_TIMESTAMP = (String) newData[0].get("log1.SYSLOG_TIMESTAMP");
+//            SSHAlertRuntime.getEventService().sendEventBean(new SSHAlert(SYSLOG_TIMESTAMP, "Three consecutive failed login attempt", FROMIP), "SSHAlert");
+//        });
+//        return runtime;
+//    }
+//
+//    public static EPRuntime initSSHAlertRuntime() {
+//        EPCompiler epc = new EPCompilerImpl();
+//
+//        Configuration configuration = new Configuration();
+//        configuration.getCommon().addEventType(SSHLoginAttemptMessage.class);
+//        configuration.getCommon().addEventType(SSHLogMessage.class);
+//        configuration.getCommon().addEventType(SSHAlert.class);
+//
+//
+//        EPRuntime runtime = EPRuntimeProvider.getDefaultRuntime(configuration);
+//
+//        CompilerArguments arguments = new CompilerArguments(configuration);
+//
+//        EPCompiled epCompiled;
+//        try {
+//            epCompiled = epc.compile("@name('SSHAlert') select * from SSHAlert ", arguments);
+//        }
+//        catch (EPCompileException ex) {
+//            // handle exception here
+//            throw new RuntimeException(ex);
+//        }
+//
+//
+//
+//        EPDeployment deployment;
+//        try {
+//            deployment = runtime.getDeploymentService().deploy(epCompiled);
+//        }
+//        catch (EPDeployException ex) {
+//            // handle exception here
+//            throw new RuntimeException(ex);
+//        }
+//
+//        EPStatement statement = runtime.getDeploymentService().getStatement(deployment.getDeploymentId(), "SSHAlert");
+//        statement.addListener( (newData, oldData, statement2, runtime2) -> {
+//            String FROMIP = (String) newData[0].get("FROMIP");
+//            String SYSLOG_TIMESTAMP = (String) newData[0].get("SYSLOG_TIMESTAMP");
+//            System.out.println(String.format("Detected 3 consecutive failed login attempts from: " + FROMIP + " at: " + SYSLOG_TIMESTAMP));
+//        });
+//        return runtime;
+//    }
 
     public static ArrayList<String> jsonList(BufferedReader br) throws IOException {
         String line = null;
