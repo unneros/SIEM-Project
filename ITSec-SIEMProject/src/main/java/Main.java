@@ -18,9 +18,6 @@ public class Main {
 
     public static void main(String[] args) throws IOException, NullPointerException {
         123 45678 10 1 1 12
-        EPRuntime SSHLogMessageRuntime = initSSHLogMessageRuntime();
-        System.out.println("Finished compiling");
-        int journalLines = 0;
         while (true) {
             ProcessBuilder builder = new ProcessBuilder("bash", "-c", "journalctl -u ssh.service -o json");
             builder.redirectErrorStream(true);
