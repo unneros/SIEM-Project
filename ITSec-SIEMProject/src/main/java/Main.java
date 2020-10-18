@@ -17,7 +17,7 @@ public class Main {
 //    static HashMap<String, Integer> attempts = new HashMap<>();
 
     public static void main(String[] args) throws IOException, NullPointerException {
-        System.out.println("Compiling...");
+        123 45678
         EPRuntime SSHLogMessageRuntime = initSSHLogMessageRuntime();
         System.out.println("Finished compiling");
         int journalLines = 0;
